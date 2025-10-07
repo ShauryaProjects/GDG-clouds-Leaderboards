@@ -14,18 +14,19 @@ import { setJSON, getJSON } from "@/lib/storage"
 import type { Participant } from "@/components/leaderboard-table"
 
 const DATA_KEY = "gcsl-data"
-const ADMIN_KEY = "gcsl-admin"
 const ACCESS_CODE = "12Vikhyat@"
 
 export default function AdminPage() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [code, setCode] = useState("")
   const [uploading, setUploading] = useState(false)
+  const [pendingRows, setPendingRows] = useState<Participant[] | null>(null)
+  const [selectedFileName, setSelectedFileName] = useState("")
   const headRef = useRef<HTMLDivElement>(null)
 
+  // Always require passcode on each visit; do not persist login
   useEffect(() => {
-    const was = getJSON<boolean>(ADMIN_KEY, false)
-    setLoggedIn(!!was)
+    setLoggedIn(false)
   }, [])
 
   useEffect(() => {
@@ -41,7 +42,6 @@ export default function AdminPage() {
   function handleLogin() {
     if (code.trim() === ACCESS_CODE) {
       setLoggedIn(true)
-      setJSON(ADMIN_KEY, true)
     } else {
       alert("Invalid access code")
     }
@@ -49,44 +49,81 @@ export default function AdminPage() {
 
   function handleLogout() {
     setLoggedIn(false)
-    setJSON(ADMIN_KEY, false as unknown as boolean)
   }
 
   function onUploadCSV(e: React.ChangeEvent<HTMLInputElement>) {
+    const inputEl = e.currentTarget
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
+    setSelectedFileName(file.name || "")
     Papa.parse(file, {
-      header: true,
+      header: false,
       skipEmptyLines: true,
       complete: (result) => {
         try {
-          const rows = (result.data as any[]).map((r) => ({
-            Name: String(r.Name || "").trim(),
-            Email: String(r.Email || "")
-              .trim()
-              .toLowerCase(),
-            SkillBadges: Number(r.SkillBadges ?? 0),
-            ArcadeGames: Number(r.ArcadeGames ?? 0),
-            ProfileURL: String(r.ProfileURL || "").trim(),
-          })) as Participant[]
-          setJSON<Participant[]>(DATA_KEY, rows)
-          alert("Leaderboard updated!")
+          const raw = result.data as any[][]
+          // Use rows starting from row index 1 (row 2 for humans)
+          const rows: Participant[] = raw.slice(1).map((r, idx) => {
+            const colA = r?.[0] ?? "" // A column (Name)
+            const colC = r?.[2] ?? "" // C column (Profile URL or text with link)
+            const colG = r?.[6] ?? 0   // G column (number)
+            const colI = r?.[8] ?? 0   // I column (number)
+            const name = String(colA).trim()
+            let profileURL = String(colC || "").trim()
+            // Attempt to extract URL if the cell contains display text or a formula
+            if (profileURL) {
+              // Matches https URLs or www. links inside any text (e.g., HYPERLINK formulas)
+              const urlMatch = profileURL.match(/https?:\/\/[\w\-._~:\/?#\[\]@!$&'()*+,;=%]+|(?:www\.)[\w\-._~:\/?#\[\]@!$&'()*+,;=%]+/i)
+              if (urlMatch) {
+                profileURL = urlMatch[0]
+              }
+              if (profileURL && !/^https?:\/\//i.test(profileURL)) {
+                profileURL = `https://${profileURL}`
+              }
+            }
+            const skillBadges = Number(colG ?? 0)
+            const arcadeGames = Number(colI ?? 0)
+
+            return {
+              Name: name,
+              // Fallback email to a stable placeholder to avoid duplicate keys
+              Email: "",
+              SkillBadges: Number.isFinite(skillBadges) ? skillBadges : 0,
+              ArcadeGames: Number.isFinite(arcadeGames) ? arcadeGames : 0,
+              ProfileURL: profileURL,
+            }
+          })
+          setPendingRows(rows)
         } catch (err) {
           console.error("[v0] CSV parse error:", err)
           alert("Failed to process CSV.")
         } finally {
           setUploading(false)
-          e.currentTarget.value = ""
+          if (inputEl) inputEl.value = ""
         }
       },
       error: (err) => {
         console.error("[v0] CSV error:", err)
         alert("Failed to parse CSV.")
         setUploading(false)
-        e.currentTarget.value = ""
+        if (inputEl) inputEl.value = ""
       },
     })
+  }
+
+  function handleCommitUpdate() {
+    if (!pendingRows || pendingRows.length === 0) return
+    try {
+      setJSON<Participant[]>(DATA_KEY, pendingRows)
+      alert("Leaderboard updated!")
+    } catch (err) {
+      console.error("[v0] Commit error:", err)
+      alert("Failed to update leaderboard.")
+    } finally {
+      setPendingRows(null)
+      setSelectedFileName("")
+    }
   }
 
   return (
@@ -95,9 +132,11 @@ export default function AdminPage() {
       <div className="container mx-auto max-w-3xl px-4 py-8 md:py-12">
         <header ref={headRef} className="mb-6 md:mb-8 flex items-start justify-between gap-4">
           <div>
-            <h1 className="headline text-pretty text-2xl md:text-4xl font-semibold tracking-tight">Admin</h1>
-            <p className="subline text-[color:var(--color-muted-foreground)] mt-1">
-              Manage participants via CSV upload. Session persists until logout.
+            <h1 className="headline text-pretty text-3xl md:text-5xl font-extrabold tracking-tight">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-[color:var(--color-chart-2)] via-[color:var(--color-chart-4)] to-[color:var(--color-chart-5)]">Admin</span>
+            </h1>
+            <p className="subline text-[color:var(--color-muted-foreground)] mt-2">
+              Manage participants via CSV upload. Passcode is required on each visit.
             </p>
           </div>
           <div className="actions flex items-center gap-2">
@@ -139,8 +178,16 @@ export default function AdminPage() {
                 className="block w-full text-sm file:mr-3 file:btn-gradient file:border file:rounded file:px-3 file:py-1.5 file:cursor-pointer file:glow"
               />
               <p className="text-[color:var(--color-muted-foreground)] text-sm mt-2">
-                Columns: Name, Email, SkillBadges, ArcadeGames, ProfileURL
+                Columns: Name (A), Profile URL (C), SkillBadges (G), ArcadeGames (I)
               </p>
+              {pendingRows && (
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <span className="text-sm">Selected: <strong>{selectedFileName || "(unnamed)"}</strong></span>
+                  <Button onClick={handleCommitUpdate} className="btn-gradient glow" disabled={uploading}>
+                    Update Leaderboard
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button

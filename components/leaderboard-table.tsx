@@ -44,15 +44,15 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm md:text-base">
-          <thead className="text-left">
+      <div className="overflow-x-auto no-scrollbar">
+        <table className="w-full text-sm md:text-base text-center">
+          <thead>
             <tr className="border-b border-[color:var(--color-border)] text-[color:var(--color-muted-foreground)]">
-              <th className="py-3 pr-3 font-medium">Rank</th>
-              <th className="py-3 pr-3 font-medium">User</th>
-              <th className="py-3 pr-3 font-medium">Skill Badges</th>
-              <th className="py-3 pr-3 font-medium">Arcade Games</th>
-              <th className="py-3 pr-3 font-medium">Profile</th>
+              <th className="py-3 px-3 font-medium text-center">Rank</th>
+              <th className="py-3 px-3 font-medium text-center">User</th>
+              <th className="py-3 px-3 font-medium text-center">Skill Badges</th>
+              <th className="py-3 px-3 font-medium text-center">Arcade Games</th>
+              <th className="py-3 px-3 font-medium text-center">Profile</th>
             </tr>
           </thead>
           <tbody>
@@ -60,25 +60,35 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
               const rank = idx + 1
               const top3 = rank <= 3
               const isTarget = p.SkillBadges === 19 && p.ArcadeGames === 1
+              // Explicit gold/silver/bronze colors for top 3
+              const highlightColor = top3
+                ? rank === 1
+                  ? '#FFD700' // gold
+                  : rank === 2
+                    ? '#C0C0C0' // silver
+                    : '#CD7F32' // bronze
+                : undefined
+              const rowStyle = top3
+                ? {
+                    backgroundColor: 'color-mix(in oklch, ' + (highlightColor || 'transparent') + ' 12%, transparent)',
+                    boxShadow: 'inset 3px 0 0 0 ' + (highlightColor || 'transparent'),
+                  } as React.CSSProperties
+                : undefined
               return (
                 <tr
-                  key={p.Email}
+                  key={`${p.Email || p.Name || "row"}-${idx}`}
                   className={`lb-row border-b border-[color:var(--color-border)] transition-colors ${isTarget ? "success-row" : ""}`}
+                  style={rowStyle}
                 >
                   <td className="py-3 pr-3 align-middle">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{rank}</span>
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="font-semibold" style={top3 ? { color: highlightColor } : undefined}>{rank}</span>
                       {top3 && (
                         <span title="Top performer" className="inline-flex items-center">
                           <Medal
                             className="size-4"
                             style={{
-                              color:
-                                rank === 1
-                                  ? "var(--color-chart-4)" // yellow-ish
-                                  : rank === 2
-                                    ? "var(--color-muted-foreground)"
-                                    : "var(--color-chart-5)", // orange-ish
+                              color: rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : '#CD7F32',
                             }}
                           />
                         </span>
@@ -86,23 +96,35 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
                     </div>
                   </td>
                   <td className="py-3 pr-3 align-middle">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{p.Name}</span>
+                    <div className="flex flex-col items-center text-center">
+                      <span className={top3 ? "font-semibold" : "font-medium"}>{p.Name}</span>
                       <span className="text-[color:var(--color-muted-foreground)] text-xs md:text-sm">{p.Email}</span>
                     </div>
                   </td>
                   <td className="py-3 pr-3 align-middle">{p.SkillBadges}</td>
                   <td className="py-3 pr-3 align-middle">{p.ArcadeGames}</td>
                   <td className="py-3 pr-3 align-middle">
-                    <a
-                      className="inline-flex items-center gap-1 text-[color:var(--color-primary)] underline-offset-4 hover:underline"
-                      href={p.ProfileURL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ExternalLink className="size-4" />
-                      View Profile
-                    </a>
+                    {(() => {
+                      const trimmed = (p.ProfileURL || "").trim()
+                      const hasUrl = trimmed.length > 0
+                      const href = hasUrl ? (/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`) : ""
+                      return hasUrl ? (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-1 text-[color:var(--color-primary)] underline-offset-4 hover:underline cursor-pointer"
+                        >
+                          <ExternalLink className="size-4" />
+                          <span className="hidden sm:inline">View Profile</span>
+                        </a>
+                      ) : (
+                        <span className="inline-flex items-center justify-center gap-1 text-[color:var(--color-muted-foreground)] cursor-not-allowed">
+                          <ExternalLink className="size-4" />
+                          <span className="hidden sm:inline">View Profile</span>
+                        </span>
+                      )
+                    })()}
                   </td>
                 </tr>
               )

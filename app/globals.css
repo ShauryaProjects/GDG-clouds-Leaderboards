@@ -136,6 +136,15 @@
   }
 }
 
+/* Hide scrollbars while preserving scrollability */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
 /* Utility styles */
 .gradient-background {
   /* Subtle layered gradients: radial + conic, analogous blue→teal */
@@ -172,6 +181,7 @@
   );
   color: var(--color-primary-foreground);
   border: 1px solid color-mix(in oklch, var(--brand) 35%, transparent);
+  cursor: pointer;
 }
 .btn-gradient:hover {
   filter: brightness(1.03);
