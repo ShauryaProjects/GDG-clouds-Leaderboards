@@ -7,9 +7,14 @@ import "./globals.css"
 import { Suspense } from "react"
 
 export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
+  title: "GDG Clouds Leaderboard",
+  description: "Created by Shaurya Srivastava",
   generator: "v0.app",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+    shortcut: "/logo.png",
+  },
 }
 
 export default function RootLayout({
