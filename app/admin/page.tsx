@@ -60,7 +60,7 @@ export default function AdminPage() {
     Papa.parse(file, {
       header: false,
       skipEmptyLines: true,
-      complete: (result) => {
+      complete: (result: any) => {
         try {
           const raw = result.data as any[][]
           // Use rows starting from row index 1 (row 2 for humans)
@@ -106,7 +106,7 @@ export default function AdminPage() {
           if (inputEl) inputEl.value = ""
         }
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error("[v0] CSV error:", err)
         alert("Failed to parse CSV.")
         setUploading(false)
@@ -177,39 +177,62 @@ export default function AdminPage() {
             </div>
           </div>
         ) : (
-          <div className="glass-card glow rounded-xl p-5 md:p-6 space-y-4">
-            <div>
-              <label className="block text-sm mb-2">Upload CSV</label>
-              <input
-                type="file"
-                accept=".csv"
-                onChange={onUploadCSV}
-                disabled={uploading}
-                className="block w-full text-sm file:mr-3 file:btn-gradient file:border file:rounded file:px-3 file:py-1.5 file:cursor-pointer file:glow"
-              />
-              <p className="text-[color:var(--color-muted-foreground)] text-sm mt-2">
-                Columns: Name (A), Email (B), Profile URL (C), SkillBadges (G), ArcadeGames (I)
-              </p>
-              {pendingRows && (
-                <div className="mt-3 flex items-center justify-between gap-2">
-                  <span className="text-sm">Selected: <strong>{selectedFileName || "(unnamed)"}</strong></span>
-                  <Button onClick={handleCommitUpdate} className="btn-gradient glow" disabled={uploading}>
-                    Update Leaderboard
-                  </Button>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleLogout}
-                variant="outline"
-                className="border-[color:var(--color-border)] bg-transparent"
-              >
-                Logout
-              </Button>
-              <Link href="/leaderboard">
-                <Button className="btn-gradient glow">Go to Leaderboard</Button>
-              </Link>
+          <div className="glass-card glow rounded-xl p-8 md:p-12 text-center">
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
+              Welcome Vikhyat,
+            </h1>
+            <div className="space-y-6">
+              <div className="flex flex-col items-center justify-center min-h-[200px]">
+                <label className="text-xl mb-8 text-white underline">Upload CSV</label>
+                 <div className="flex justify-center items-center mb-4">
+                   <input
+                     type="file"
+                     accept=".csv"
+                     onChange={onUploadCSV}
+                     disabled={uploading}
+                     className="hidden"
+                     id="file-upload"
+                     ref={(input) => {
+                       if (input) {
+                         input.style.display = 'none'
+                       }
+                     }}
+                   />
+                   <button
+                     type="button"
+                     onClick={() => {
+                       const fileInput = document.getElementById('file-upload') as HTMLInputElement
+                       if (fileInput) fileInput.click()
+                     }}
+                     disabled={uploading}
+                     className="inline-flex items-center px-4 py-2 text-sm bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg cursor-pointer hover:from-blue-600 hover:to-purple-700 transition-all select-none disabled:opacity-50 disabled:cursor-not-allowed"
+                   >
+                     {selectedFileName ? selectedFileName : "Choose File"}
+                   </button>
+                 </div>
+                 {pendingRows && (
+                   <div className="flex flex-col items-center gap-3">
+                     <Button onClick={handleCommitUpdate} className="btn-gradient glow" disabled={uploading}>
+                       Update Leaderboard
+                     </Button>
+                   </div>
+                 )}
+                <p className="text-white/70 text-sm mt-4 text-center">
+                  Columns: Name (A), Email (B), Profile URL (C), SkillBadges (G), ArcadeGames (I)
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  onClick={handleLogout}
+                  variant="outline"
+                  className="border-white/30 bg-transparent text-white hover:bg-white/10"
+                >
+                  Logout
+                </Button>
+                <Link href="/leaderboard">
+                  <Button className="btn-gradient glow">Go to Leaderboard</Button>
+                </Link>
+              </div>
             </div>
           </div>
         )}
