@@ -25,6 +25,16 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
     return () => ctx.revert()
   }, [data])
 
+  // Create a map of participants to their ranks in the full dataset
+  const participantRanks = useMemo(() => {
+    const rankMap = new Map<string, number>()
+    data.forEach((participant, index) => {
+      const key = participant.Email || participant.Name || `row-${index}`
+      rankMap.set(key, index + 1)
+    })
+    return rankMap
+  }, [data])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return data
@@ -58,7 +68,9 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
           </thead>
           <tbody>
             {filtered.map((p, idx) => {
-              const rank = idx + 1
+              // Get the true rank from the full dataset, not the filtered position
+              const participantKey = p.Email || p.Name || `row-${idx}`
+              const rank = participantRanks.get(participantKey) || (idx + 1)
               const top3 = rank <= 3
               const isTarget = p.SkillBadges === 19 && p.ArcadeGames === 1
               // Explicit gold/silver/bronze colors for top 3

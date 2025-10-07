@@ -63,8 +63,8 @@ export default function LeaderboardPage() {
         <header ref={headerRef} className="my-10 md:my-15 flex items-start justify-between gap-4">
           <div>
             <div className="headline flex items-center gap-3 md:gap-4">
-              <div className="relative rounded-full overflow-hidden ring-1 ring-[color:var(--color-border)] bg-white p-1" style={{width: 72, height: 72}}>
-                <Image src="/logo.png" alt="Event logo" fill sizes="72px" className="object-cover" />
+              <div className="relative rounded-full overflow-hidden ring-1 ring-[color:var(--color-border)] bg-white p-1 w-16 h-16 sm:w-20 sm:h-20 aspect-square shrink-0">
+                <Image src="/logo.png" alt="Event logo" fill sizes="80px" className="object-cover" />
               </div>
               <div>
                 <h1 className="text-pretty text-4xl md:text-6xl font-extrabold tracking-tight text-[color:var(--color-foreground)] mt-2 mb-2">
@@ -83,6 +83,25 @@ export default function LeaderboardPage() {
 
         <div className="mt-6 text-center text-[color:var(--color-muted-foreground)]">
           Data is stored locally. Upload via Admin to update the leaderboard.
+        </div>
+      </div>
+
+      {/* Fixed bottom-left logo with hover expansion */}
+      <div className="fixed bottom-4 left-4 z-10 group">
+        <div className="relative w-12 h-12 rounded-full overflow-hidden ring-1 ring-[color:var(--color-border)] transition-all duration-300 group-hover:w-48 group-hover:h-12 group-hover:rounded-lg group-hover:bg-gray-800">
+          <video 
+            src="/logo.mp4" 
+            autoPlay 
+            loop 
+            muted 
+            playsInline
+            className="w-full h-full object-cover rounded-full transition-all duration-300 group-hover:opacity-0" 
+          />
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <span className="text-xs font-medium text-white whitespace-nowrap">
+              Created by Shaurya Srivastava
+            </span>
+          </div>
         </div>
       </div>
     </main>
