@@ -13,7 +13,15 @@ import { getJSON } from "@/lib/storage"
 
 const DATA_KEY = "gcsl-data"
 
-const fetcher = () => getJSON<Participant[]>(DATA_KEY, [])
+const fetcher = async () => {
+  try {
+    const res = await fetch("/api/leaderboard", { cache: "no-store" })
+    if (!res.ok) throw new Error("bad")
+    return (await res.json()) as Participant[]
+  } catch {
+    return getJSON<Participant[]>(DATA_KEY, [])
+  }
+}
 
 export default function LeaderboardPage() {
   const { data } = useSWR<Participant[]>(DATA_KEY, fetcher)

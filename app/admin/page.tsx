@@ -112,9 +112,16 @@ export default function AdminPage() {
     })
   }
 
-  function handleCommitUpdate() {
+  async function handleCommitUpdate() {
     if (!pendingRows || pendingRows.length === 0) return
     try {
+      // Persist to API so it’s shared across visitors
+      const res = await fetch("/api/leaderboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pendingRows),
+      })
+      if (!res.ok) throw new Error("Save failed")
       setJSON<Participant[]>(DATA_KEY, pendingRows)
       alert("Leaderboard updated!")
     } catch (err) {
