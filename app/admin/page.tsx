@@ -66,10 +66,14 @@ export default function AdminPage() {
           // Use rows starting from row index 1 (row 2 for humans)
           const rows: Participant[] = raw.slice(1).map((r, idx) => {
             const colA = r?.[0] ?? "" // A column (Name)
+            const colB = r?.[1] ?? "" // B column (Email)
             const colC = r?.[2] ?? "" // C column (Profile URL or text with link)
             const colG = r?.[6] ?? 0   // G column (number)
             const colI = r?.[8] ?? 0   // I column (number)
             const name = String(colA).trim()
+            const email = String(colB || "")
+              .trim()
+              .toLowerCase()
             let profileURL = String(colC || "").trim()
             // Attempt to extract URL if the cell contains display text or a formula
             if (profileURL) {
@@ -87,8 +91,7 @@ export default function AdminPage() {
 
             return {
               Name: name,
-              // Fallback email to a stable placeholder to avoid duplicate keys
-              Email: "",
+              Email: email,
               SkillBadges: Number.isFinite(skillBadges) ? skillBadges : 0,
               ArcadeGames: Number.isFinite(arcadeGames) ? arcadeGames : 0,
               ProfileURL: profileURL,
@@ -185,7 +188,7 @@ export default function AdminPage() {
                 className="block w-full text-sm file:mr-3 file:btn-gradient file:border file:rounded file:px-3 file:py-1.5 file:cursor-pointer file:glow"
               />
               <p className="text-[color:var(--color-muted-foreground)] text-sm mt-2">
-                Columns: Name (A), Profile URL (C), SkillBadges (G), ArcadeGames (I)
+                Columns: Name (A), Email (B), Profile URL (C), SkillBadges (G), ArcadeGames (I)
               </p>
               {pendingRows && (
                 <div className="mt-3 flex items-center justify-between gap-2">

@@ -68,10 +68,10 @@ export default function LeaderboardPage() {
               </div>
               <div>
                 <h1 className="text-pretty text-4xl md:text-6xl font-extrabold tracking-tight text-[color:var(--color-foreground)] mt-2 mb-2">
-                  <span className="block">Google Cloud Study Labs</span>
+                  <span className="block">Google Cloud Study Jams</span>
                 </h1>
                 <span className="subline block text-base md:text-xl mt-1 text-[color:var(--color-muted-foreground)]">
-                  GDG MMMUT Gorakhpur
+                  GDG on Campus MMMUT
                 </span>
               </div>
             </div>

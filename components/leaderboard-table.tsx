@@ -32,12 +32,13 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
   }, [data, query])
 
   return (
-    <div className="glass-card glow rounded-xl p-4 md:p-6" ref={tableRef}>
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <div className="flex-1">
+      <div className="glass-card glow rounded-xl p-4 md:p-6" ref={tableRef}>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-base md:text-lg font-semibold">Current Standings</h2>
+        <div className="flex-shrink-0 w-40 sm:w-56 md:w-64">
           <Input
             className="input-glass w-full"
-            placeholder="Search by name or email..."
+            placeholder="Search by name or email"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
