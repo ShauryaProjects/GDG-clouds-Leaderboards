@@ -9,7 +9,7 @@ import { GradientBackground } from "@/components/gradient-background"
 import { LeaderboardTable, type Participant } from "@/components/leaderboard-table"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { getJSON } from "@/lib/storage"
+import { getJSON, setJSON } from "@/lib/storage"
 
 const DATA_KEY = "gcsl-data"
 
@@ -17,14 +17,20 @@ const fetcher = async () => {
   try {
     const res = await fetch("/api/leaderboard", { cache: "no-store" })
     if (!res.ok) throw new Error("bad")
-    return (await res.json()) as Participant[]
+    const serverData = (await res.json()) as Participant[]
+    if (Array.isArray(serverData) && serverData.length > 0) {
+      setJSON<Participant[]>(DATA_KEY, serverData)
+      return serverData
+    }
+    // Server returned empty (e.g., no KV/in-memory reset). Prefer locally cached data.
+    return getJSON<Participant[]>(DATA_KEY, [])
   } catch {
     return getJSON<Participant[]>(DATA_KEY, [])
   }
 }
 
 export default function LeaderboardPage() {
-  const { data } = useSWR<Participant[]>(DATA_KEY, fetcher)
+  const { data } = useSWR<Participant[]>(DATA_KEY, fetcher, { revalidateOnFocus: false })
   const lb = data ?? []
   const headerRef = useRef<HTMLDivElement>(null)
 
