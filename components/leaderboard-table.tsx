@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Input } from "@/components/ui/input"
-import { ExternalLink, Medal } from "lucide-react"
+import { ExternalLink, Medal, Search } from "lucide-react"
 import gsap from "gsap"
 
 export type Participant = {
@@ -46,12 +46,15 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-base md:text-lg font-semibold">Current Standings</h2>
         <div className="flex-shrink-0 w-40 sm:w-56 md:w-64">
-          <Input
-            className="input-glass w-full"
-            placeholder="Search by name or email"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[color:var(--color-muted-foreground)] pointer-events-none" />
+            <Input
+              className="input-glass w-full !pl-14 border-[color:var(--color-primary)] focus-visible:border-[color:var(--color-primary)] focus-visible:ring-[color:var(--color-primary)]/40"
+              placeholder="Search by name or email"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
