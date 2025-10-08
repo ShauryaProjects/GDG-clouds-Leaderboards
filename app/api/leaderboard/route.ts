@@ -1,57 +1,59 @@
 import { NextResponse } from "next/server"
+import { Redis } from "@upstash/redis"
 
-// Keep an in-memory fallback for local/dev and when KV is not configured
+// Keep an in-memory fallback for local/dev and when Redis is not configured
 let inMemoryData: any[] = []
 
-async function saveToKV(key: string, value: any[] | null) {
-	try {
-		// Lazy import to avoid hard dependency when env isn't set
-		const { kv } = await import("@vercel/kv").catch(() => ({ kv: null as any }))
-		if (!kv) return false
-		if (value) {
-			await kv.set(key, JSON.stringify(value))
-		} else {
-			await kv.del(key)
-		}
-		return true
-	} catch {
-		return false
-	}
+// Use the provided Upstash Redis snippet
+const redis = new Redis({
+    url: 'https://sharp-condor-9261.upstash.io',
+    token: 'ASQtAAImcDJhZGRkYTYwMjJlMWY0MmI5OGI2N2RiY2VmY2U3MTc1MnAyOTI2MQ',
+})
+
+async function saveToRedis(key: string, value: any[] | null) {
+    try {
+        if (value) {
+            await redis.set(key, JSON.stringify(value))
+        } else {
+            await redis.del(key)
+        }
+        return true
+    } catch {
+        return false
+    }
 }
 
-async function loadFromKV(key: string): Promise<any[] | null> {
-	try {
-		const { kv } = await import("@vercel/kv").catch(() => ({ kv: null as any }))
-		if (!kv) return null
-		const raw = await kv.get<string>(key)
-		if (!raw) return []
-		return JSON.parse(raw)
-	} catch {
-		return null
-	}
+async function loadFromRedis(key: string): Promise<any[] | null> {
+    try {
+        const raw = await redis.get<string>(key)
+        if (!raw) return []
+        return typeof raw === "string" ? JSON.parse(raw) : (raw as any[])
+    } catch {
+        return null
+    }
 }
 
 const DATA_KEY = "gcsl-data"
 
 export async function GET() {
-	// Prefer KV if available; fall back to in-memory cache
-	const kvData = await loadFromKV(DATA_KEY)
-	const data = kvData ?? inMemoryData
-	return NextResponse.json(data ?? [])
+    // Prefer Redis if available; fall back to in-memory cache
+    const redisData = await loadFromRedis(DATA_KEY)
+    const data = redisData ?? inMemoryData
+    return NextResponse.json(data ?? [])
 }
 
 export async function POST(req: Request) {
-	try {
-		const body = await req.json()
-		if (!Array.isArray(body)) {
-			return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
-		}
-		inMemoryData = body
-		await saveToKV(DATA_KEY, body)
-		return NextResponse.json({ ok: true })
-	} catch (err) {
-		return NextResponse.json({ error: "Failed to save" }, { status: 500 })
-	}
+    try {
+        const body = await req.json()
+        if (!Array.isArray(body)) {
+            return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+        }
+        inMemoryData = body
+        await saveToRedis(DATA_KEY, body)
+        return NextResponse.json({ ok: true })
+    } catch (err) {
+        return NextResponse.json({ error: "Failed to save" }, { status: 500 })
+    }
 }
 
 
