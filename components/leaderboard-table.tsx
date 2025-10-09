@@ -59,8 +59,8 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
         </div>
       </div>
 
-      <div>
-        <table className="w-full table-fixed text-sm md:text-base text-center">
+      <div className="w-full overflow-x-auto">
+        <table className="min-w-[720px] w-full table-fixed text-sm md:text-base text-center">
           <thead>
             <tr className="border-b border-[color:var(--color-border)] text-[color:var(--color-muted-foreground)]">
               <th className="py-3 px-3 font-medium text-center">Rank</th>
