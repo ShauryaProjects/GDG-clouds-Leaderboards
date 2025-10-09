@@ -59,7 +59,7 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
         </div>
       </div>
 
-      <div className="w-full overflow-x-auto">
+      <div className="w-full overflow-x-auto no-scrollbar">
         <table className="min-w-[720px] w-full table-fixed text-sm md:text-base text-center">
           <thead>
             <tr className="border-b border-[color:var(--color-border)] text-[color:var(--color-muted-foreground)]">
