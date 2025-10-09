@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import useSWR from "swr"
 import gsap from "gsap"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -33,22 +33,91 @@ export default function LeaderboardPage() {
   const { data } = useSWR<Participant[]>(DATA_KEY, fetcher, { revalidateOnFocus: false })
   const lb = data ?? []
   const headerRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const [loaderGone, setLoaderGone] = useState(false)
 
-  // Animate heading on mount
+  // Show loader for ~1.9s once on mount, then fade it out and animate header/content in
   useEffect(() => {
-    if (!headerRef.current) return
-    const ctx = gsap.context(() => {
-      gsap.from(".headline", { y: 16, opacity: 0, duration: 0.6, ease: "power3.out" })
-      gsap.from(".subline", { y: 10, opacity: 0, duration: 0.5, ease: "power2.out", delay: 0.08 })
-      gsap.from(".actions", { y: 8, opacity: 0, duration: 0.5, ease: "power2.out", delay: 0.15 })
-    }, headerRef)
-    return () => ctx.revert()
+    const timer = setTimeout(() => {
+      if (overlayRef.current) {
+        gsap.to(overlayRef.current, {
+          opacity: 0,
+          duration: 0.4,
+          ease: "power2.out",
+          onComplete: () => {
+            setLoaderGone(true)
+            if (contentRef.current && headerRef.current) {
+              gsap.to(contentRef.current, { opacity: 1, duration: 0.4, ease: "power2.out" })
+              const ctx = gsap.context(() => {
+                gsap.from(".headline", { y: 16, opacity: 0, duration: 0.6, ease: "power3.out" })
+                gsap.from(".subline", { y: 10, opacity: 0, duration: 0.5, ease: "power2.out", delay: 0.08 })
+                gsap.from(".actions", { y: 8, opacity: 0, duration: 0.5, ease: "power2.out", delay: 0.15 })
+              }, headerRef)
+              return () => ctx.revert()
+            }
+          },
+        })
+      } else {
+        setLoaderGone(true)
+        if (contentRef.current && headerRef.current) {
+          gsap.to(contentRef.current, { opacity: 1, duration: 0.4, ease: "power2.out" })
+          const ctx = gsap.context(() => {
+            gsap.from(".headline", { y: 16, opacity: 0, duration: 0.6, ease: "power3.out" })
+            gsap.from(".subline", { y: 10, opacity: 0, duration: 0.5, ease: "power2.out", delay: 0.08 })
+            gsap.from(".actions", { y: 8, opacity: 0, duration: 0.5, ease: "power2.out", delay: 0.15 })
+          }, headerRef)
+          return () => ctx.revert()
+        }
+      }
+    }, 1900)
+    return () => clearTimeout(timer)
   }, [])
 
-  // Derived rank data with stable sort
+  // Derived rank data with updated sort: prioritize completion date for those who
+  // completed exactly 19 labs and 1 arcade game; earlier date ranks higher. Then
+  // fall back to prior logic (SkillBadges desc, ArcadeGames desc, Name asc).
   const ranked = useMemo(() => {
+    const parseIsoOrDdmmyyyy = (value?: string): number | undefined => {
+      if (!value) return undefined
+      // If already looks like ISO YYYY-MM-DD, Date.parse is safe
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const t = Date.parse(value)
+        return Number.isNaN(t) ? undefined : t
+      }
+      // Try DD/MM/YYYY or DD-MM-YYYY
+      const m = value.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+      if (m) {
+        const day = Number(m[1])
+        const month = Number(m[2])
+        const year = Number(m[3])
+        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+          const dt = new Date(Date.UTC(year, month - 1, day))
+          const t = dt.getTime()
+          return Number.isNaN(t) ? undefined : t
+        }
+      }
+      return undefined
+    }
+
     return [...lb].sort((a, b) => {
-      // Rank by SkillBadges desc, then ArcadeGames desc, then name asc
+      const aIsTarget = a.SkillBadges === 19 && a.ArcadeGames === 1 && !!a.CompletionDate
+      const bIsTarget = b.SkillBadges === 19 && b.ArcadeGames === 1 && !!b.CompletionDate
+
+      // If only one has qualifying completion date, that one comes first
+      if (aIsTarget && !bIsTarget) return -1
+      if (!aIsTarget && bIsTarget) return 1
+
+      // If both have a qualifying date, earlier date ranks higher
+      if (aIsTarget && bIsTarget) {
+        const aTime = parseIsoOrDdmmyyyy(a.CompletionDate as string)
+        const bTime = parseIsoOrDdmmyyyy(b.CompletionDate as string)
+        if (!Number.isNaN(aTime) && !Number.isNaN(bTime) && aTime !== bTime) {
+          return (aTime as number) - (bTime as number)
+        }
+      }
+
+      // Fallback to previous sorting
       if (b.SkillBadges !== a.SkillBadges) return b.SkillBadges - a.SkillBadges
       if (b.ArcadeGames !== a.ArcadeGames) return b.ArcadeGames - a.ArcadeGames
       return a.Name.localeCompare(b.Name)
@@ -59,7 +128,20 @@ export default function LeaderboardPage() {
     <main className="relative">
       <GradientBackground />
 
-      <div className="container mx-auto max-w-6xl px-4 py-8 md:py-12 relative">
+      {/* Loader overlay */}
+      {!loaderGone && (
+        <div ref={overlayRef} className="fixed inset-0 z-30 flex items-center justify-center bg-[color:var(--color-background)]">
+          <div className="relative flex flex-col items-center gap-4">
+            {/* Rotating ring + neon pulsing core */}
+            <div className="loader-ring">
+              <div className="loader-core" />
+            </div>
+            <span className="text-sm text-[color:var(--color-muted-foreground)] tracking-widest">INITIALIZING</span>
+          </div>
+        </div>
+      )}
+
+      <div ref={contentRef} style={{ opacity: 0 }} className="container mx-auto max-w-6xl px-4 py-8 md:py-12 relative">
         <div className="fixed top-4 right-4 md:top-6 md:right-6 flex items-center gap-2 z-20">
           <Link href="/admin">
             <Button className="btn-gradient glow">Admin</Button>

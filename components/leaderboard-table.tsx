@@ -11,6 +11,7 @@ export type Participant = {
   SkillBadges: number
   ArcadeGames: number
   ProfileURL: string
+  CompletionDate?: string
 }
 
 export function LeaderboardTable({ data }: { data: Participant[] }) {
@@ -58,8 +59,8 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto no-scrollbar">
-        <table className="w-full text-sm md:text-base text-center">
+      <div>
+        <table className="w-full table-fixed text-sm md:text-base text-center">
           <thead>
             <tr className="border-b border-[color:var(--color-border)] text-[color:var(--color-muted-foreground)]">
               <th className="py-3 px-3 font-medium text-center">Rank</th>
@@ -76,7 +77,7 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
               const rank = participantRanks.get(participantKey) || (idx + 1)
               const top3 = rank <= 3
               const isTarget = p.SkillBadges === 19 && p.ArcadeGames === 1
-              // Explicit gold/silver/bronze colors for top 3
+              // Keep medal/icon colors but remove background highlight for top 3
               const highlightColor = top3
                 ? rank === 1
                   ? '#FFD700' // gold
@@ -84,17 +85,10 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
                     ? '#C0C0C0' // silver
                     : '#CD7F32' // bronze
                 : undefined
-              const rowStyle = top3
-                ? {
-                    backgroundColor: 'color-mix(in oklch, ' + (highlightColor || 'transparent') + ' 12%, transparent)',
-                    boxShadow: 'inset 3px 0 0 0 ' + (highlightColor || 'transparent'),
-                  } as React.CSSProperties
-                : undefined
               return (
                 <tr
                   key={`${p.Email || p.Name || "row"}-${idx}`}
                   className={`lb-row border-b border-[color:var(--color-border)] transition-colors ${isTarget ? "success-row" : ""}`}
-                  style={rowStyle}
                 >
                   <td className="py-3 pr-3 align-middle">
                     <div className="flex items-center justify-center gap-2">
@@ -111,10 +105,10 @@ export function LeaderboardTable({ data }: { data: Participant[] }) {
                       )}
                     </div>
                   </td>
-                  <td className="py-3 pr-3 align-middle">
-                    <div className="flex flex-col items-center text-center">
+                  <td className="py-3 pr-3 align-middle break-words">
+                    <div className="flex flex-col items-center text-center break-words">
                       <span className={top3 ? "font-semibold" : "font-medium"}>{p.Name}</span>
-                      <span className="text-[color:var(--color-muted-foreground)] text-xs md:text-sm">{p.Email}</span>
+                      <span className="text-[color:var(--color-muted-foreground)] text-xs md:text-sm break-words">{p.Email}</span>
                     </div>
                   </td>
                   <td className="py-3 pr-3 align-middle">{p.SkillBadges}</td>

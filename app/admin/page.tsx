@@ -16,6 +16,34 @@ import type { Participant } from "@/components/leaderboard-table"
 const DATA_KEY = "gcsl-data"
 const ACCESS_CODE = "12Vikhyat@"
 
+// Convert DD/MM/YYYY to ISO YYYY-MM-DD (UTC)
+function toIsoDateFromDdmmyyyy(input: string): string | undefined {
+  const trimmed = input.trim()
+  // Support DD/MM/YYYY and DD-MM-YYYY
+  let match = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+  if (match) {
+    const day = Number(match[1])
+    const month = Number(match[2])
+    const year = Number(match[3])
+    if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return undefined
+    if (month < 1 || month > 12 || day < 1 || day > 31) return undefined
+    const dt = new Date(Date.UTC(year, month - 1, day))
+    if (isNaN(dt.getTime())) return undefined
+    return dt.toISOString().slice(0, 10)
+  }
+  // Support Excel serial dates (days since 1899-12-30)
+  if (/^\d{1,6}$/.test(trimmed)) {
+    const serial = Number(trimmed)
+    if (Number.isFinite(serial) && serial > 0 && serial < 600000) {
+      const excelEpoch = Date.UTC(1899, 11, 30)
+      const millis = excelEpoch + serial * 24 * 60 * 60 * 1000
+      const dt = new Date(millis)
+      if (!isNaN(dt.getTime())) return dt.toISOString().slice(0, 10)
+    }
+  }
+  return undefined
+}
+
 export default function AdminPage() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [code, setCode] = useState("")
@@ -70,6 +98,7 @@ export default function AdminPage() {
             const colC = r?.[2] ?? "" // C column (Profile URL or text with link)
             const colG = r?.[6] ?? 0   // G column (number)
             const colI = r?.[8] ?? 0   // I column (number)
+            const colM = r?.[12] ?? "" // M column (date string)
             const name = String(colA).trim()
             const email = String(colB || "")
               .trim()
@@ -89,12 +118,23 @@ export default function AdminPage() {
             const skillBadges = Number(colG ?? 0)
             const arcadeGames = Number(colI ?? 0)
 
+            // Extract completion date from column M only for those who completed 19 labs and 1 arcade game
+            let completionDate: string | undefined
+            if (Number.isFinite(skillBadges) && Number.isFinite(arcadeGames) && skillBadges === 19 && arcadeGames === 1) {
+              const rawDate = String(colM || "").trim()
+              if (rawDate) {
+                // Parse DD/MM/YYYY explicitly and standardize to ISO (YYYY-MM-DD)
+                completionDate = toIsoDateFromDdmmyyyy(rawDate)
+              }
+            }
+
             return {
               Name: name,
               Email: email,
               SkillBadges: Number.isFinite(skillBadges) ? skillBadges : 0,
               ArcadeGames: Number.isFinite(arcadeGames) ? arcadeGames : 0,
               ProfileURL: profileURL,
+              CompletionDate: completionDate,
             }
           })
           setPendingRows(rows)
