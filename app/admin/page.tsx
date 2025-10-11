@@ -12,9 +12,26 @@ import { GradientBackground } from "@/components/gradient-background"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { setJSON, getJSON } from "@/lib/storage"
 import type { Participant } from "@/components/leaderboard-table"
+import useSWR from "swr"
 
 const DATA_KEY = "gcsl-data"
+const FIXED_RANKINGS_KEY = "gcsl-fixed-rankings"
 const ACCESS_CODE = "12Vikhyat@"
+
+const fixedRankingsFetcher = async () => {
+  try {
+    const res = await fetch("/api/fixed-rankings", { cache: "no-store" })
+    if (!res.ok) throw new Error("bad")
+    const serverData = (await res.json()) as Record<string, number>
+    if (serverData && typeof serverData === "object") {
+      setJSON<Record<string, number>>(FIXED_RANKINGS_KEY, serverData)
+      return serverData
+    }
+    return getJSON<Record<string, number>>(FIXED_RANKINGS_KEY, {})
+  } catch {
+    return getJSON<Record<string, number>>(FIXED_RANKINGS_KEY, {})
+  }
+}
 
 // Convert DD/MM/YYYY to ISO YYYY-MM-DD (UTC)
 function toIsoDateFromDdmmyyyy(input: string): string | undefined {
@@ -50,7 +67,17 @@ export default function AdminPage() {
   const [uploading, setUploading] = useState(false)
   const [pendingRows, setPendingRows] = useState<Participant[] | null>(null)
   const [selectedFileName, setSelectedFileName] = useState("")
+  const [showFixedRankings, setShowFixedRankings] = useState(false)
+  const [fixedRankEmail, setFixedRankEmail] = useState("")
+  const [fixedRankValue, setFixedRankValue] = useState("")
   const headRef = useRef<HTMLDivElement>(null)
+  
+  // Fetch fixed rankings data
+  const { data: fixedRankings, mutate: mutateFixedRankings } = useSWR<Record<string, number>>(
+    FIXED_RANKINGS_KEY, 
+    fixedRankingsFetcher, 
+    { revalidateOnFocus: false }
+  )
 
   // Always require passcode on each visit; do not persist login
   useEffect(() => {
@@ -158,7 +185,7 @@ export default function AdminPage() {
   async function handleCommitUpdate() {
     if (!pendingRows || pendingRows.length === 0) return
     try {
-      // Persist to API so it’s shared across visitors
+      // Persist to API so it's shared across visitors
       const res = await fetch("/api/leaderboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -173,6 +200,65 @@ export default function AdminPage() {
     } finally {
       setPendingRows(null)
       setSelectedFileName("")
+    }
+  }
+
+  async function handleAddFixedRank() {
+    if (!fixedRankEmail.trim() || !fixedRankValue.trim()) {
+      alert("Please enter both email and rank value")
+      return
+    }
+    
+    const rankValue = parseInt(fixedRankValue)
+    if (isNaN(rankValue) || rankValue < 1) {
+      alert("Please enter a valid rank number (1 or higher)")
+      return
+    }
+
+    try {
+      const currentRankings = fixedRankings || {}
+      const updatedRankings = {
+        ...currentRankings,
+        [fixedRankEmail.trim().toLowerCase()]: rankValue
+      }
+
+      const res = await fetch("/api/fixed-rankings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedRankings),
+      })
+      
+      if (!res.ok) throw new Error("Save failed")
+      
+      setJSON<Record<string, number>>(FIXED_RANKINGS_KEY, updatedRankings)
+      mutateFixedRankings()
+      setFixedRankEmail("")
+      setFixedRankValue("")
+      alert("Fixed ranking added!")
+    } catch (err) {
+      console.error("Fixed ranking error:", err)
+      alert("Failed to add fixed ranking.")
+    }
+  }
+
+  async function handleRemoveFixedRank(email: string) {
+    try {
+      const res = await fetch(`/api/fixed-rankings?email=${encodeURIComponent(email)}`, {
+        method: "DELETE",
+      })
+      
+      if (!res.ok) throw new Error("Delete failed")
+      
+      const currentRankings = fixedRankings || {}
+      const updatedRankings = { ...currentRankings }
+      delete updatedRankings[email]
+      
+      setJSON<Record<string, number>>(FIXED_RANKINGS_KEY, updatedRankings)
+      mutateFixedRankings()
+      alert("Fixed ranking removed!")
+    } catch (err) {
+      console.error("Remove fixed ranking error:", err)
+      alert("Failed to remove fixed ranking.")
     }
   }
 
@@ -217,62 +303,137 @@ export default function AdminPage() {
             </div>
           </div>
         ) : (
-          <div className="glass-card glow rounded-xl p-8 md:p-12 text-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
-              Welcome Vikhyat,
-            </h1>
-            <div className="space-y-6">
-              <div className="flex flex-col items-center justify-center min-h-[200px]">
-                <label className="text-xl mb-8 text-white underline">Upload CSV</label>
-                 <div className="flex justify-center items-center mb-4">
-                   <input
-                     type="file"
-                     accept=".csv"
-                     onChange={onUploadCSV}
-                     disabled={uploading}
-                     className="hidden"
-                     id="file-upload"
-                     ref={(input) => {
-                       if (input) {
-                         input.style.display = 'none'
-                       }
-                     }}
-                   />
-                   <button
-                     type="button"
-                     onClick={() => {
-                       const fileInput = document.getElementById('file-upload') as HTMLInputElement
-                       if (fileInput) fileInput.click()
-                     }}
-                     disabled={uploading}
-                     className="inline-flex items-center px-4 py-2 text-sm bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg cursor-pointer hover:from-blue-600 hover:to-purple-700 transition-all select-none disabled:opacity-50 disabled:cursor-not-allowed"
-                   >
-                     {selectedFileName ? selectedFileName : "Choose File"}
-                   </button>
-                 </div>
-                 {pendingRows && (
-                   <div className="flex flex-col items-center gap-3">
-                     <Button onClick={handleCommitUpdate} className="btn-gradient glow" disabled={uploading}>
-                       Update Leaderboard
-                     </Button>
+          <div className="space-y-6">
+            {/* CSV Upload Section */}
+            <div className="glass-card glow rounded-xl p-8 md:p-12 text-center">
+              <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
+                Welcome Vikhyat,
+              </h1>
+              <div className="space-y-6">
+                <div className="flex flex-col items-center justify-center min-h-[200px]">
+                  <label className="text-xl mb-8 text-white underline">Upload CSV</label>
+                   <div className="flex justify-center items-center mb-4">
+                     <input
+                       type="file"
+                       accept=".csv"
+                       onChange={onUploadCSV}
+                       disabled={uploading}
+                       className="hidden"
+                       id="file-upload"
+                       ref={(input) => {
+                         if (input) {
+                           input.style.display = 'none'
+                         }
+                       }}
+                     />
+                     <button
+                       type="button"
+                       onClick={() => {
+                         const fileInput = document.getElementById('file-upload') as HTMLInputElement
+                         if (fileInput) fileInput.click()
+                       }}
+                       disabled={uploading}
+                       className="inline-flex items-center px-4 py-2 text-sm bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg cursor-pointer hover:from-blue-600 hover:to-purple-700 transition-all select-none disabled:opacity-50 disabled:cursor-not-allowed"
+                     >
+                       {selectedFileName ? selectedFileName : "Choose File"}
+                     </button>
                    </div>
-                 )}
-                <p className="text-white/70 text-sm mt-4 text-center">
-                  Columns: Name (A), Email (B), Profile URL (C), SkillBadges (G), ArcadeGames (I)
-                </p>
+                   {pendingRows && (
+                     <div className="flex flex-col items-center gap-3">
+                       <Button onClick={handleCommitUpdate} className="btn-gradient glow" disabled={uploading}>
+                         Update Leaderboard
+                       </Button>
+                     </div>
+                   )}
+                  <p className="text-white/70 text-sm mt-4 text-center">
+                    Columns: Name (A), Email (B), Profile URL (C), SkillBadges (G), ArcadeGames (I)
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center justify-center gap-2">
+            </div>
+
+            {/* Fixed Rankings Management Section */}
+            <div className="glass-card glow rounded-xl p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white">Fixed Rankings Management</h2>
                 <Button
-                  onClick={handleLogout}
-                  variant="outline"
-                  className="border-white/30 bg-transparent text-white hover:bg-white/10"
+                  onClick={() => setShowFixedRankings(!showFixedRankings)}
+                  className="btn-gradient glow"
                 >
-                  Logout
+                  {showFixedRankings ? "Hide" : "Manage Fixed Rankings"}
                 </Button>
-                <Link href="/leaderboard">
-                  <Button className="btn-gradient glow">Go to Leaderboard</Button>
-                </Link>
               </div>
+              
+              {showFixedRankings && (
+                <div className="space-y-4">
+                  <div className="text-white/80 text-sm mb-4">
+                    Fix rankings for students who completed 19 badges and 1 game. Their positions will remain stable even when the leaderboard is updated.
+                  </div>
+                  
+                  {/* Add Fixed Ranking Form */}
+                  <div className="flex gap-2 mb-6">
+                    <Input
+                      placeholder="Student email"
+                      value={fixedRankEmail}
+                      onChange={(e) => setFixedRankEmail(e.target.value)}
+                      className="input-glass flex-1"
+                    />
+                    <Input
+                      placeholder="Rank number"
+                      type="number"
+                      value={fixedRankValue}
+                      onChange={(e) => setFixedRankValue(e.target.value)}
+                      className="input-glass w-24"
+                    />
+                    <Button onClick={handleAddFixedRank} className="btn-gradient glow">
+                      Add
+                    </Button>
+                  </div>
+
+                  {/* Current Fixed Rankings List */}
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold text-white">Current Fixed Rankings:</h3>
+                    {fixedRankings && Object.keys(fixedRankings).length > 0 ? (
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {Object.entries(fixedRankings)
+                          .sort(([,a], [,b]) => a - b)
+                          .map(([email, rank]) => (
+                            <div key={email} className="flex items-center justify-between bg-white/10 rounded-lg p-3">
+                              <div className="flex items-center gap-3">
+                                <span className="text-white font-medium">#{rank}</span>
+                                <span className="text-white/80">{email}</span>
+                              </div>
+                              <Button
+                                onClick={() => handleRemoveFixedRank(email)}
+                                variant="outline"
+                                size="sm"
+                                className="border-red-400 text-red-400 hover:bg-red-400/10"
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="text-white/60 text-sm">No fixed rankings set</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Navigation */}
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                className="border-white/30 bg-transparent text-white hover:bg-white/10"
+              >
+                Logout
+              </Button>
+              <Link href="/leaderboard">
+                <Button className="btn-gradient glow">Go to Leaderboard</Button>
+              </Link>
             </div>
           </div>
         )}

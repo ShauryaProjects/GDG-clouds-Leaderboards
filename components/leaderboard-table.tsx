@@ -12,6 +12,7 @@ export type Participant = {
   ArcadeGames: number
   ProfileURL: string
   CompletionDate?: string
+  FixedRank?: number
 }
 
 export function LeaderboardTable({ data }: { data: Participant[] }) {

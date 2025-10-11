@@ -12,6 +12,7 @@ import Link from "next/link"
 import { getJSON, setJSON } from "@/lib/storage"
 
 const DATA_KEY = "gcsl-data"
+const FIXED_RANKINGS_KEY = "gcsl-fixed-rankings"
 
 const fetcher = async () => {
   try {
@@ -29,9 +30,26 @@ const fetcher = async () => {
   }
 }
 
+const fixedRankingsFetcher = async () => {
+  try {
+    const res = await fetch("/api/fixed-rankings", { cache: "no-store" })
+    if (!res.ok) throw new Error("bad")
+    const serverData = (await res.json()) as Record<string, number>
+    if (serverData && typeof serverData === "object") {
+      setJSON<Record<string, number>>(FIXED_RANKINGS_KEY, serverData)
+      return serverData
+    }
+    return getJSON<Record<string, number>>(FIXED_RANKINGS_KEY, {})
+  } catch {
+    return getJSON<Record<string, number>>(FIXED_RANKINGS_KEY, {})
+  }
+}
+
 export default function LeaderboardPage() {
   const { data } = useSWR<Participant[]>(DATA_KEY, fetcher, { revalidateOnFocus: false })
+  const { data: fixedRankings } = useSWR<Record<string, number>>(FIXED_RANKINGS_KEY, fixedRankingsFetcher, { revalidateOnFocus: false })
   const lb = data ?? []
+  const fixedRanks = fixedRankings ?? {}
   const headerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -74,7 +92,7 @@ export default function LeaderboardPage() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Derived rank data with updated sort: prioritize completion date for those who
+  // Derived rank data with updated sort: prioritize fixed rankings first, then completion date for those who
   // completed exactly 19 labs and 1 arcade game; earlier date ranks higher. Then
   // fall back to prior logic (SkillBadges desc, ArcadeGames desc, Name asc).
   const ranked = useMemo(() => {
@@ -100,7 +118,23 @@ export default function LeaderboardPage() {
       return undefined
     }
 
-    return [...lb].sort((a, b) => {
+    // First, add fixed ranks to participants who have them
+    const participantsWithFixedRanks = lb.map(participant => ({
+      ...participant,
+      FixedRank: fixedRanks[participant.Email] || undefined
+    }))
+
+    return [...participantsWithFixedRanks].sort((a, b) => {
+      // If both have fixed ranks, sort by fixed rank
+      if (a.FixedRank && b.FixedRank) {
+        return a.FixedRank - b.FixedRank
+      }
+      
+      // If only one has a fixed rank, that one comes first
+      if (a.FixedRank && !b.FixedRank) return -1
+      if (!a.FixedRank && b.FixedRank) return 1
+
+      // If neither has fixed rank, use the original logic
       const aIsTarget = a.SkillBadges === 19 && a.ArcadeGames === 1 && !!a.CompletionDate
       const bIsTarget = b.SkillBadges === 19 && b.ArcadeGames === 1 && !!b.CompletionDate
 
@@ -122,7 +156,7 @@ export default function LeaderboardPage() {
       if (b.ArcadeGames !== a.ArcadeGames) return b.ArcadeGames - a.ArcadeGames
       return a.Name.localeCompare(b.Name)
     })
-  }, [lb])
+  }, [lb, fixedRanks])
 
   return (
     <main className="relative">

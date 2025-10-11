@@ -203,6 +203,7 @@
     inset 0 0 0 1px color-mix(in oklch, var(--success) 14%, transparent);
 }
 
+
 /* Loader animations */
 @keyframes neonPulse {
   0%, 100% {
