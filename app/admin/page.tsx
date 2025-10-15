@@ -106,6 +106,10 @@ export default function AdminPage() {
       next[email] = String(rank)
     }
     setEditRanks(next)
+    // Also compute and show the next suggested rank for the add form
+    const values = Object.values(fixedRankings)
+    const nextRank = values.length > 0 ? Math.max(...values) + 1 : 1
+    setFixedRankValue(String(nextRank))
   }, [fixedRankings])
 
   function handleLogin() {
@@ -223,7 +227,10 @@ export default function AdminPage() {
       return
     }
     
-    const rankValue = parseInt(fixedRankValue)
+    // Use the next available rank automatically
+    const currentValues = Object.values(fixedRankings || {})
+    const nextAutoRank = currentValues.length > 0 ? Math.max(...currentValues) + 1 : 1
+    const rankValue = nextAutoRank
     if (isNaN(rankValue) || rankValue < 1) {
       alert("Please enter a valid rank number (1 or higher)")
       return
@@ -247,7 +254,7 @@ export default function AdminPage() {
       setJSON<Record<string, number>>(FIXED_RANKINGS_KEY, updatedRankings)
       mutateFixedRankings()
       setFixedRankEmail("")
-      setFixedRankValue("")
+      setFixedRankValue(String(nextAutoRank + 1))
       alert("Fixed ranking added!")
     } catch (err) {
       console.error("Fixed ranking error:", err)
@@ -412,7 +419,7 @@ export default function AdminPage() {
                     Fix rankings for students who completed 19 badges and 1 game. Their positions will remain stable even when the leaderboard is updated.
                   </div>
                   
-                  {/* Add Fixed Ranking Form */}
+                  {/* Add Fixed Ranking Form (auto-suggest next rank) */}
                   <div className="flex gap-2 mb-6">
                     <Input
                       placeholder="Student email"
@@ -420,13 +427,10 @@ export default function AdminPage() {
                       onChange={(e) => setFixedRankEmail(e.target.value)}
                       className="input-glass flex-1"
                     />
-                    <Input
-                      placeholder="Rank number"
-                      type="number"
-                      value={fixedRankValue}
-                      onChange={(e) => setFixedRankValue(e.target.value)}
-                      className="input-glass w-24"
-                    />
+                    <div className="flex items-center px-3 py-2 rounded-md bg-white/10 text-white/80">
+                      <span className="text-sm">Next rank:&nbsp;</span>
+                      <span className="font-semibold">#{fixedRankValue || "1"}</span>
+                    </div>
                     <Button onClick={handleAddFixedRank} className="btn-gradient glow">
                       Add
                     </Button>
