@@ -70,6 +70,7 @@ export default function AdminPage() {
   const [showFixedRankings, setShowFixedRankings] = useState(false)
   const [fixedRankEmail, setFixedRankEmail] = useState("")
   const [fixedRankValue, setFixedRankValue] = useState("")
+  const [editRanks, setEditRanks] = useState<Record<string, string>>({})
   const headRef = useRef<HTMLDivElement>(null)
   
   // Fetch fixed rankings data
@@ -93,6 +94,19 @@ export default function AdminPage() {
     }, headRef)
     return () => ctx.revert()
   }, [])
+
+  // Keep editable inputs in sync when rankings load/update
+  useEffect(() => {
+    if (!fixedRankings) {
+      setEditRanks({})
+      return
+    }
+    const next: Record<string, string> = {}
+    for (const [email, rank] of Object.entries(fixedRankings)) {
+      next[email] = String(rank)
+    }
+    setEditRanks(next)
+  }, [fixedRankings])
 
   function handleLogin() {
     if (code.trim() === ACCESS_CODE) {
@@ -262,6 +276,34 @@ export default function AdminPage() {
     }
   }
 
+  async function handleUpdateFixedRank(email: string) {
+    const raw = editRanks[email]
+    const parsed = parseInt((raw ?? "").trim())
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      alert("Please enter a valid rank number (1 or higher)")
+      return
+    }
+    try {
+      const currentRankings = fixedRankings || {}
+      const updatedRankings: Record<string, number> = {
+        ...currentRankings,
+        [email]: parsed,
+      }
+      const res = await fetch("/api/fixed-rankings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedRankings),
+      })
+      if (!res.ok) throw new Error("Save failed")
+      setJSON<Record<string, number>>(FIXED_RANKINGS_KEY, updatedRankings)
+      mutateFixedRankings()
+      alert("Fixed ranking updated!")
+    } catch (err) {
+      console.error("Update fixed ranking error:", err)
+      alert("Failed to update fixed ranking.")
+    }
+  }
+
   return (
     <main className="relative">
       <GradientBackground />
@@ -400,8 +442,23 @@ export default function AdminPage() {
                           .map(([email, rank]) => (
                             <div key={email} className="flex items-center justify-between bg-white/10 rounded-lg p-3">
                               <div className="flex items-center gap-3">
-                                <span className="text-white font-medium">#{rank}</span>
                                 <span className="text-white/80">{email}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white/60 text-sm">Rank</span>
+                                  <Input
+                                    type="number"
+                                    className="input-glass w-24"
+                                    value={editRanks[email] ?? String(rank)}
+                                    onChange={(e) => setEditRanks((prev) => ({ ...prev, [email]: e.target.value }))}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    className="btn-gradient glow"
+                                    onClick={() => handleUpdateFixedRank(email)}
+                                  >
+                                    Save
+                                  </Button>
+                                </div>
                               </div>
                               <Button
                                 onClick={() => handleRemoveFixedRank(email)}
